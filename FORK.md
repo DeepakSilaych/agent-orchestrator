@@ -56,7 +56,33 @@ Upstream files modified — this is the entire conflict surface:
 | `frontend/src/renderer/lib/bridge.ts` | browser fallback stub | medium |
 | `frontend/src/renderer/test/setup.ts` | test stub | medium |
 | `frontend/src/shared/daemon-status.ts` | `workspaceId` + remote failure codes | low |
-| `frontend/src/renderer/i18n/*.json` | 8 locales, append-only | low |
+| `frontend/src/renderer/i18n/*.json` | 8 locales | **conflicts every sync** — see below |
+
+### Resolving the two that actually conflict
+
+Learned from the first sync (140 upstream commits). `main.ts`, `preload.ts`,
+`bridge.ts` and `setup.ts` all auto-merged; only these two needed hands.
+
+**`GlobalSettingsForm.tsx` — take upstream wholesale, re-apply two lines.**
+Upstream restructures this file freely (it moved the dialogs out to callbacks,
+dropped a section, added a `grouped` prop). Merging line by line just fits the
+fork into a shape that no longer exists. Instead:
+
+```bash
+git show upstream/main:frontend/src/renderer/components/GlobalSettingsForm.tsx > <that path>
+```
+
+then re-add the `WorkspacesSection` import + `useShellMaybe`, the `daemonStatus`
+line, and the `<WorkspacesSection daemonStatus={daemonStatus} />` mount. Two
+insertions, every time.
+
+**Locale JSONs — union, restricted to `workspaces.*`.** Both sides append new
+keys at the tail, so all eight conflict on every sync. The resolution is
+upstream's file plus the fork's keys — and **only** keys starting with
+`workspaces.`. Other keys present on the fork side but absent upstream are ones
+upstream *deleted*; carrying them forward resurrects dead strings (the first
+sync would have restored five). A script that blindly unions the two sides gets
+this wrong.
 
 **Keep the wire-up thin.** Every line added to an upstream file is a line that
 conflicts later; prefer a one-line call into a fork-owned module over inline
