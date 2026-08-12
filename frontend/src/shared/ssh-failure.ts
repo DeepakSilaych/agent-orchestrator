@@ -135,3 +135,22 @@ export function aoNotInstalledFailure(sshTarget: string): SshFailure {
 		details: "",
 	};
 }
+
+/**
+ * The failure for a remote daemon built from different source than this client.
+ *
+ * Skew is not hypothetical: updating the desktop app does not update `ao` on
+ * the VM, and the first symptom is the client calling a route the older daemon
+ * has never heard of. Without this the user sees a bare
+ * `METHOD_NOT_ALLOWED` from deep inside the UI and has no reason to suspect
+ * the remote binary.
+ */
+export function buildSkewFailure(sshTarget: string, localBuild: string, remoteBuild: string): SshFailure {
+	return {
+		kind: "remote_command_failed",
+		message:
+			`${sshTarget} is running a different AO build, so parts of the app will fail in ` +
+			`confusing ways. Update \`ao\` there to match this app.`,
+		details: `this app: ${localBuild}\n${sshTarget}: ${remoteBuild}`,
+	};
+}

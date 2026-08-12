@@ -22,7 +22,8 @@ export type DaemonFailureCode =
 	| "host_key_changed"
 	| "host_key_unverified"
 	| "host_auth_failed"
-	| "remote_ao_missing";
+	| "remote_ao_missing"
+	| "remote_build_skew";
 
 export type DaemonStatus = {
 	state: "starting" | "ready" | "stopped" | "error";

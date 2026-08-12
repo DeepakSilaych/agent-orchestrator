@@ -29,6 +29,12 @@ export type DaemonProbe = {
 	status: string;
 	service: string;
 	pid: number;
+	/**
+	 * Identifies the source the daemon was built from. Absent on daemons that
+	 * predate it or were built outside a repository, which must read as "cannot
+	 * tell" rather than "different" — see daemonmeta.BuildID.
+	 */
+	buildId?: string;
 	executablePath?: string;
 	workingDirectory?: string;
 	startupWorkingDirectory?: string;
@@ -62,6 +68,7 @@ export function parseDaemonProbe(endpoint: "healthz" | "readyz", body: unknown):
 		status: candidate.status,
 		service: candidate.service,
 		pid: candidate.pid,
+		buildId: typeof candidate.buildId === "string" && candidate.buildId !== "" ? candidate.buildId : undefined,
 		executablePath: typeof candidate.executablePath === "string" ? candidate.executablePath : undefined,
 		workingDirectory: typeof candidate.workingDirectory === "string" ? candidate.workingDirectory : undefined,
 		startupWorkingDirectory:

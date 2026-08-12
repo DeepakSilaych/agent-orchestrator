@@ -300,6 +300,12 @@ func daemonProbePayload(status string, cfg config.Config) map[string]any {
 		"service": daemonmeta.ServiceName,
 		"pid":     os.Getpid(),
 	}
+	// Lets a remote client detect that it and this daemon were built from
+	// different sources. Omitted when unknown so the client can tell "different
+	// build" from "cannot tell" (see daemonmeta.BuildID).
+	if buildID := daemonmeta.BuildID(); buildID != "" {
+		payload["buildId"] = buildID
+	}
 	if exe, err := os.Executable(); err == nil && exe != "" {
 		payload["executablePath"] = exe
 	}

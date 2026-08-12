@@ -962,6 +962,48 @@ function aoStateDir(): string | null {
 	return runFile ? path.dirname(runFile) : null;
 }
 
+/**
+ * Build id of the daemon binary this app ships, asked of the binary itself and
+ * cached for the process lifetime.
+ *
+ * Used only to warn when a remote workspace runs a different build. Failure is
+ * not an error: an older binary has no `build-id` command, and the comparison
+ * is skipped rather than blocking a connect over a missing diagnostic.
+ */
+let localDaemonBuildIdPromise: Promise<string | undefined> | null = null;
+
+function localDaemonBuildId(): Promise<string | undefined> {
+	localDaemonBuildIdPromise ??= new Promise<string | undefined>((resolve) => {
+		const launch = resolveDaemonLaunch(
+			process.env,
+			app.isPackaged,
+			process.resourcesPath,
+			app.getAppPath(),
+			os.homedir(),
+			process.platform,
+		);
+		if (!launch) {
+			resolve(undefined);
+			return;
+		}
+		// Replace the daemon subcommand with build-id, keeping every other arg
+		// (a configured AO_DAEMON_COMMAND may carry flags the binary needs).
+		const args = launch.args.map((arg) => (arg === "daemon" ? "build-id" : arg));
+		let output = "";
+		try {
+			const child = spawn(launch.command, args, { cwd: launch.cwd, shell: launch.shell, stdio: ["ignore", "pipe", "ignore"] });
+			child.stdout?.on("data", (chunk: Buffer) => {
+				output += chunk.toString("utf8");
+			});
+			child.on("error", () => resolve(undefined));
+			child.on("close", () => resolve(output.trim() || undefined));
+		} catch {
+			resolve(undefined);
+		}
+	});
+	return localDaemonBuildIdPromise;
+}
+
 /** ControlMaster sockets live under ~/.ao/ssh, created 0700 (AGENTS.md ~/.ao rule). */
 async function ensureControlDir(stateDir: string): Promise<string> {
 	const dir = path.join(stateDir, "ssh");
@@ -1078,6 +1120,7 @@ async function startRemoteWorkspaceDaemonInner(): Promise<boolean> {
 		const connection = await connectRemoteWorkspace(workspace, {
 			controlDir: await ensureControlDir(stateDir),
 			probe: readDaemonProbe,
+			localBuildId: await localDaemonBuildId(),
 		});
 		remoteConnection = connection;
 		console.log(

@@ -5,6 +5,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/aoagents/agent-orchestrator/backend/internal/daemon"
+	"github.com/aoagents/agent-orchestrator/backend/internal/daemonmeta"
 	aoprocess "github.com/aoagents/agent-orchestrator/backend/internal/process"
 	"github.com/aoagents/agent-orchestrator/backend/internal/processalive"
 	"github.com/aoagents/agent-orchestrator/backend/internal/telemetrymeta"
@@ -181,6 +183,7 @@ func NewRootCommand(deps Deps) *cobra.Command {
 	})
 
 	root.AddCommand(newDaemonCommand())
+	root.AddCommand(newBuildIDCommand())
 	root.AddCommand(newStartCommand(ctx))
 	root.AddCommand(newStopCommand(ctx))
 	root.AddCommand(newStatusCommand(ctx))
@@ -311,6 +314,23 @@ func atMostOneArg(cmd *cobra.Command, args []string) error {
 		return usageError{err}
 	}
 	return nil
+}
+
+// newBuildIDCommand lets the desktop supervisor ask the daemon binary it ships
+// which source it was built from, so it can compare that against a REMOTE
+// daemon's /healthz and warn about drift before the user hits a mystery 405.
+// Hidden and machine-readable: it is plumbing, not a user-facing command.
+func newBuildIDCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:    "build-id",
+		Short:  "Print the build identifier of this binary",
+		Hidden: true,
+		Args:   noArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintln(cmd.OutOrStdout(), daemonmeta.BuildID())
+			return nil
+		},
+	}
 }
 
 func newDaemonCommand() *cobra.Command {

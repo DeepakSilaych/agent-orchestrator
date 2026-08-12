@@ -84,6 +84,11 @@ const answer: DaemonProber = async (_port, endpoint) => ({
 	status: endpoint === "healthz" ? "ok" : "ready",
 });
 
+/** A daemon that reports a build id, as anything current does. */
+function answerWithBuild(buildId?: string): DaemonProber {
+	return async (_port, endpoint) => ({ ...probeOk, status: endpoint === "healthz" ? "ok" : "ready", buildId });
+}
+
 /**
  * A deterministic clock: every injected sleep advances it by exactly the
  * requested amount, so readiness budgets expire in zero real time and the
@@ -226,6 +231,48 @@ describe("connectRemoteWorkspace", () => {
 		connection.dispose();
 		// A second dispose must not signal again — the pid may have been recycled.
 		expect(tunnel?.child.killed).toBeNull();
+	});
+
+	// Skew is not hypothetical: updating the desktop app does not update `ao` on
+	// the VM, and the first symptom is a bare METHOD_NOT_ALLOWED from deep in the
+	// UI with no hint that the remote binary is the cause.
+	it("refuses a remote daemon built from different source", async () => {
+		const { spawn } = fakeSpawn({ alreadyRunning: true });
+		const error = await connectRemoteWorkspace(
+			workspace,
+			deps({ spawn, probe: answerWithBuild("aaaaaaaaaaaa"), localBuildId: "bbbbbbbbbbbb" }),
+		).catch((e) => e);
+
+		expect(error).toBeInstanceOf(RemoteWorkspaceError);
+		expect(error.message).toContain("different AO build");
+		expect(error.failure.details).toContain("aaaaaaaaaaaa");
+	});
+
+	it("connects when the builds match", async () => {
+		const { spawn } = fakeSpawn({ alreadyRunning: true });
+		const connection = await connectRemoteWorkspace(
+			workspace,
+			deps({ spawn, probe: answerWithBuild("samebuild123"), localBuildId: "samebuild123" }),
+		);
+		expect(connection.localPort).toBe(51234);
+		connection.dispose();
+	});
+
+	// The important half. A guard that fires without evidence is worse than no
+	// guard: it would refuse every daemon predating buildId, and every binary
+	// built outside a repository.
+	it.each([
+		["the remote reports no build id", { probeBuild: undefined, local: "bbbbbbbbbbbb" }],
+		["this app cannot determine its own", { probeBuild: "aaaaaaaaaaaa", local: undefined }],
+		["neither is known", { probeBuild: undefined, local: undefined }],
+	])("connects anyway when %s", async (_label, { probeBuild, local }) => {
+		const { spawn } = fakeSpawn({ alreadyRunning: true });
+		const connection = await connectRemoteWorkspace(
+			workspace,
+			deps({ spawn, probe: answerWithBuild(probeBuild), localBuildId: local }),
+		);
+		expect(connection.localPort).toBe(51234);
+		connection.dispose();
 	});
 
 	it("surfaces a missing ssh client distinctly from an unreachable host", async () => {

@@ -39,6 +39,7 @@ import {
 } from "../shared/ssh-command";
 import {
 	aoNotInstalledFailure,
+	buildSkewFailure,
 	classifySshFailure,
 	sshClientMissingFailure,
 	type SshFailure,
@@ -96,6 +97,11 @@ export type RemoteWorkspaceDeps = {
 	/** Injectable clock and sleep, so readiness budgets are testable without waiting. */
 	delay?: (ms: number) => Promise<void>;
 	now?: () => number;
+	/**
+	 * Build id of the daemon this app ships, for detecting drift against the
+	 * separately-installed remote one. Undefined disables the check.
+	 */
+	localBuildId?: string;
 };
 
 type RunResult = { exitCode: number | null; stdout: string; stderr: string };
@@ -387,6 +393,15 @@ export async function connectRemoteWorkspace(
 							details: tunnelStderr.trim(),
 						},
 			);
+		}
+		// Skew check last: the tunnel is up and the daemon answers, so this is a
+		// warning about a working-but-mismatched pair, not a transport failure.
+		// Both ids must be known — an older daemon reports none, and refusing on
+		// missing evidence would break every setup that predates buildId.
+		const health = await deps.probe(localPort, "healthz");
+		const remoteBuild = health?.buildId;
+		if (deps.localBuildId && remoteBuild && deps.localBuildId !== remoteBuild) {
+			throw new RemoteWorkspaceError(buildSkewFailure(workspace.sshTarget, deps.localBuildId, remoteBuild));
 		}
 		return { localPort, remotePort, started, closed, dispose };
 	} catch (error) {
