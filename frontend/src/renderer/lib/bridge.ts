@@ -21,6 +21,8 @@ export const aoBridge: AoBridge =
 			onOpenSettingsShortcut: () => () => undefined,
 			onPreviousSessionShortcut: () => () => undefined,
 			onNextSessionShortcut: () => () => undefined,
+			onPreviousTabShortcut: () => () => undefined,
+			onNextTabShortcut: () => () => undefined,
 			onFocusTerminalShortcut: () => () => undefined,
 		},
 		terminal: {
@@ -60,6 +62,7 @@ export const aoBridge: AoBridge =
 			getBootstrap: async () => null,
 		},
 		browser: {
+			nativeCompositionEnabled: false,
 			ensure: async (sessionId: string) => ({
 				viewId: `preview:${sessionId}`,
 				url: "",
@@ -69,6 +72,7 @@ export const aoBridge: AoBridge =
 				isLoading: false,
 			}),
 			setBounds: () => undefined,
+			setOverlayOpen: () => undefined,
 			navigate: async ({ viewId, url }) => ({
 				viewId,
 				url,
@@ -120,19 +124,30 @@ export const aoBridge: AoBridge =
 			getTabs: async (viewId: string) => ({ viewId, activeTabId: "t1", tabs: [] }),
 			selectTab: async ({ viewId, tabId }) => ({ viewId, activeTabId: tabId, tabs: [] }),
 			closeTab: async ({ viewId }) => ({ viewId, activeTabId: "", tabs: [] }),
+			openTab: async ({ viewId }) => ({ viewId, activeTabId: "", tabs: [] }),
+			devtools: async ({ viewId, operation }) => ({
+				viewId,
+				open: operation !== "close",
+				activeTabId: "",
+			}),
 			destroy: () => undefined,
-			capture: async () => "",
-			requestMirror: async () => false,
 			setAnnotationMode: async () => undefined,
 			onNavState: () => () => undefined,
 			onTabsState: () => () => undefined,
 			onAgentActivity: () => () => undefined,
+			onDevToolsState: () => () => undefined,
 			onAnnotationSubmit: () => () => undefined,
 			onAnnotationCancel: () => () => undefined,
 		},
 		notifications: {
 			show: async () => undefined,
+			setBadge: async () => undefined,
+			devBounce: async () => undefined,
 			onClick: () => () => undefined,
+		},
+		tray: {
+			setAttentionState: () => undefined,
+			onOpenSession: () => () => undefined,
 		},
 		appState: {
 			getMigration: async () => ({ status: "pending" }),
@@ -172,5 +187,11 @@ export const aoBridge: AoBridge =
 		featureBuilds: {
 			list: async () => [],
 			getActive: async () => null,
+		},
+		cloud: {
+			getSession: async () => null,
+			signIn: async () => undefined,
+			signOut: async () => undefined,
+			onSessionChanged: () => () => undefined,
 		},
 	} satisfies AoBridge);

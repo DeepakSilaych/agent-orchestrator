@@ -35,7 +35,7 @@ export function WorkspacesSection({ daemonStatus, titleHidden }: { daemonStatus:
 	];
 
 	return (
-		<SettingsSection title={t("workspaces.title")} sectionId="workspaces" titleHidden={titleHidden}>
+		<SettingsSection title={t("workspaces.title")} sectionId="workspaces" titleHidden={titleHidden} grouped>
 			{rows.map((row) => (
 				<WorkspaceRow
 					key={row.id}
