@@ -27,14 +27,24 @@ merged into it (see Syncing). Do not expect `main` to fast-forward from
 
 ## What the fork actually costs to maintain
 
-Less than it looks. The feature is **entirely in `frontend/src`** — there are
-no backend changes, no migration, and none of the generated artifacts are
-touched. That is a consequence of the architecture, not luck: the remote side
-runs a stock, unmodified AO daemon, so nothing in Go had to learn about SSH.
+Less than it looks. The feature is **almost entirely in `frontend/src`** — no
+migration, and none of the generated artifacts are touched. That is a
+consequence of the architecture, not luck: the remote side runs an ordinary AO
+daemon, so nothing in Go had to learn about SSH.
+
+The one exception is the build-id skew guard (`daemonmeta.BuildID`, reported on
+`/healthz`, plus a hidden `ao build-id`). It is in Go because it has to be: the
+client and the remote daemon are separate installations that drift, and only the
+daemon can say what it was built from. Three small files, none of them
+churn-prone. Treat any *further* backend change as a design smell — if the fork
+starts teaching the daemon about remoteness, the architecture has slipped back
+toward the session-placement design this one replaced.
 
 New files (can never conflict):
 
 ```
+backend/internal/daemonmeta/meta.go      BuildID (also touches httpd/router.go,
+                                         cli/root.go — a few lines each)
 frontend/src/shared/workspaces.ts        registry model + resolution order
 frontend/src/shared/ssh-command.ts       argv builders
 frontend/src/shared/ssh-failure.ts       failure taxonomy
